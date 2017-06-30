@@ -39,14 +39,28 @@ static int CheckTcp(const struct iphdr* iph, string s_ip, int s_port)
 		struct tcphdr * tcpheader = (struct tcphdr*)(iph + 1);
 		int source_port = ntohs(tcpheader->source);
 		int dest_port = ntohs(tcpheader->dest);
-		printf("source port : %d\n",source_port);
-		printf("dest port : %d\n",dest_port);
+		printf("source port : %d ---->  dest port : %d\n",source_port, dest_port);
+		//printf("dest port : %d\n",dest_port);
+		printf("id : %d, tot_len : %d\n",ntohs(iph->id), ntohs(iph->tot_len));
+		printf("seq : %u, ack_seq : %u\n",ntohl(tcpheader->seq), ntohl(tcpheader->ack_seq));
+		printf("ack : %d, syn : %d \n", tcpheader->ack,tcpheader->ack);
+		
+		//printf("tcpheader->doff : %u\n",tcpheader->doff);
+		struct SpiceLinkHeader* spicelkheader = (struct SpiceLinkHeader*)(tcpheader + 1);
+		//printf("SPICE_MAGIC: %x \n",SPICE_MAGIC);
+		printf("sizeof(tcpheader) %lu\n",sizeof(tcpheader));
+		printf("sizeof(struct tcphdr) %lu\n",sizeof(struct tcphdr));
+/*		printf("spicelkheader->magic: %x \n",spicelkheader->magic);
+		if(ntohl(spicelkheader->magic) == SPICE_MAGIC)
+		{
+			printf("---------spice link header---------\n");
+		}*/
 
-		if(dest_port == s_port)
+/*		if(dest_port == s_port)
 		{
 			struct SpiceLinkHeader* spicelkheader = (struct SpiceLinkHeader*)(tcpheader + 1);	
 			printf("%d\n",spicelkheader->magic);
-		}
+		}*/
 	}
 	else
 	{
@@ -219,8 +233,8 @@ int Sniffer::ParsePackage()
 	while(1)
 	{
 		n_read = recvfrom(sock_fd, buf, 2048, 0, NULL, NULL);
-		//14(ether_header)+20(ip_header)+8(tcp/udp header)
-		if(n_read < 42)
+		//14(ether_header)+20(ip_header)+20(tcp_header)
+		if(n_read < 54)
 		{
 			//printf("Incomplete header, packet corrupt\n");
 			continue;
