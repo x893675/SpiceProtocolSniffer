@@ -15,13 +15,27 @@
 #include <arpa/inet.h>
 
 #include "../spice/protocol.h"
-#define BUFFER_MAX 2048
+#define BUFFER_MAX 4096
 
 
+/*char spice_buf[BUFFER_MAX];
+
+static void ReverseArray(char* array, int size)
+{
+	int i;
+	char temp;
+	for(i=0; i<size/2; i++)
+	{
+		temp = array[i];
+		array[i] = array[size-i-1];
+		array[size-i-1] = temp;
+		printf("%x ", array[i]);
+	}
+	printf("\n");
+}*/
 
 
-
-static int CheckTcp(const struct iphdr* iph, string s_ip, int s_port)
+static int CheckTcp(const struct iphdr* iph, string s_ip, int s_port, char* buf)
 {
 	if(!iph)
 	{
@@ -39,34 +53,74 @@ static int CheckTcp(const struct iphdr* iph, string s_ip, int s_port)
 		struct tcphdr * tcpheader = (struct tcphdr*)(iph + 1);
 		int source_port = ntohs(tcpheader->source);
 		int dest_port = ntohs(tcpheader->dest);
-		printf("source port : %d ---->  dest port : %d\n",source_port, dest_port);
+
+		int spice_data_len = ntohs(iph->tot_len) - 20 - tcpheader->doff * 4;
+		int spice_data_offset = 14 + 20 + tcpheader->doff * 4;
+
+		if(spice_data_len <= 4)
+		{
+			//printf("package don't have spice protocol data!\n");
+			return 0;
+		}
+		printf("spice_data_len %d, spice_data_offset %d \n",spice_data_len, spice_data_offset);
+		//printf("dest_port %d, source port %d\n",dest_port,s_port);
+		if(dest_port == s_port)
+		{
+			//printf("id : %d, tot_len : %d\n",ntohs(iph->id), ntohs(iph->tot_len));
+			//printf("spice_data_len %d, spice_data_offset %d \n",spice_data_len, spice_data_offset);
+			//printf("tcpheader->doff : %u\n",tcpheader->doff);
+		    struct SpiceLinkHeader* link_hdr = (struct SpiceLinkHeader*)(buf + spice_data_offset);
+		    //printf("link_hdr->magic %x, SPICE_MAGIC %x\n",link_hdr->magic,SPICE_MAGIC);
+		    if(link_hdr->magic != SPICE_MAGIC)
+		    {
+		    	return -1;
+		    }
+		    printf("link_hdr->major_version %d, link_hdr->minor_version %d, link_hdr->size %d\n",link_hdr->major_version,
+		    	link_hdr->minor_version,link_hdr->size);
+		    struct SpiceLinkMess* link_msg = (struct SpiceLinkMess*)(link_hdr + 1);
+		    printf("link_msg->connection_id %d, link_msg->channel_type %d, link_msg->channel_id %d, link_msg->caps_offset %d\n",
+		    	link_msg->connection_id, link_msg->channel_type, link_msg->channel_id, link_msg->caps_offset);
+		}
+		else if(source_port == s_port)
+		{
+			//printf("id : %d, tot_len : %d\n",ntohs(iph->id), ntohs(iph->tot_len));
+			//printf("spice_data_len %d, spice_data_offset %d \n",spice_data_len, spice_data_offset);
+			//printf("tcpheader->doff : %u\n",tcpheader->doff);
+/*			struct SpiceLinkHeader* link_hdr = (struct SpiceLinkHeader*)(buf + spice_data_offset);
+		    if(link_hdr->magic != SPICE_MAGIC)
+		    {
+		    	return -1;
+		    }
+		    printf("link_hdr->major_version %d, link_hdr->minor_version %d, link_hdr->size %d\n",link_hdr->major_version,
+		    	link_hdr->minor_version,link_hdr->size);*/
+			return 0;
+		}
+		else
+		{
+			return 0;
+		}
+		//printf("source port : %d ---->  dest port : %d\n",source_port, dest_port);
 		//printf("dest port : %d\n",dest_port);
-		printf("id : %d, tot_len : %d\n",ntohs(iph->id), ntohs(iph->tot_len));
-		printf("seq : %u, ack_seq : %u\n",ntohl(tcpheader->seq), ntohl(tcpheader->ack_seq));
-		printf("ack : %d, syn : %d \n", tcpheader->ack,tcpheader->ack);
-		
+		//printf("read_len %d\n",read_len);
+		//printf("id : %d, tot_len : %d\n",ntohs(iph->id), ntohs(iph->tot_len));
 		//printf("tcpheader->doff : %u\n",tcpheader->doff);
-		struct SpiceLinkHeader* spicelkheader = (struct SpiceLinkHeader*)(tcpheader + 1);
+		//printf("seq : %u, ack_seq : %u\n",ntohl(tcpheader->seq), ntohl(tcpheader->ack_seq));
+		//printf("ack : %d, syn : %d \n", tcpheader->ack,tcpheader->ack);
+		
+		//printf("iphdr->frag_off : %x\n",iph->frag_off);
+	
+		//struct SpiceLinkHeader* spicelkheader = (struct SpiceLinkHeader*)(tcpheader + 1);
+		//printf("tcpheader %x, spicelkheader %x\n",tcpheader,spicelkheader);
 		//printf("SPICE_MAGIC: %x \n",SPICE_MAGIC);
-		printf("sizeof(tcpheader) %lu\n",sizeof(tcpheader));
-		printf("sizeof(struct tcphdr) %lu\n",sizeof(struct tcphdr));
-/*		printf("spicelkheader->magic: %x \n",spicelkheader->magic);
-		if(ntohl(spicelkheader->magic) == SPICE_MAGIC)
+		//printf("sizeof(tcpheader) %lu\n",sizeof(tcpheader));
+		//printf("sizeof(struct tcphdr) %lu\n",sizeof(struct tcphdr));
+		//printf("spicelkheader->magic: %x \n",spicelkheader->magic);
+/*		if(ntohl(spicelkheader->magic) == SPICE_MAGIC)
 		{
 			printf("---------spice link header---------\n");
 		}*/
-
-/*		if(dest_port == s_port)
-		{
-			struct SpiceLinkHeader* spicelkheader = (struct SpiceLinkHeader*)(tcpheader + 1);	
-			printf("%d\n",spicelkheader->magic);
-		}*/
 	}
-	else
-	{
-		//printf("not spice package\n");
-	}
-	return 0;
+	return -1;
 }
 
 Sniffer::Sniffer(string &dev, string &ip, int serverport)
@@ -232,7 +286,7 @@ int Sniffer::ParsePackage()
 	
 	while(1)
 	{
-		n_read = recvfrom(sock_fd, buf, 2048, 0, NULL, NULL);
+		n_read = recvfrom(sock_fd, buf, 4096, 0, NULL, NULL);
 		//14(ether_header)+20(ip_header)+20(tcp_header)
 		if(n_read < 54)
 		{
@@ -245,7 +299,7 @@ int Sniffer::ParsePackage()
 		
 		if(iph->protocol == IPPROTO_TCP)
 		{
-			CheckTcp(iph, serverip, port);
+			CheckTcp(iph, serverip, port, buf);
 		}
 	}
 }
